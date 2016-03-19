@@ -21,3 +21,4 @@ class Group(Thread):
 
     def AddUser(self,user):
         self.users.append(user)
+
