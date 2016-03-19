@@ -5,7 +5,8 @@ import Group
 import UserReciever
 import User
 
-onlineUsers = []
+
+onlineUsers = [] ##list of the users that are currently connected
 messages = []
 count = 0
 condition = Condition()
