@@ -5,6 +5,9 @@ import Group
 import UserReciever
 import User
 
+
+HOST = '127.0.0.1'
+PORT = 8870
 #the type of pacages recieved fron the client
 comPacageLogin = "1"
 comPacageNewUser = "2"
@@ -23,28 +26,24 @@ onlineUsers = [] ##list of the users that are currently connected
 messages = []
 count = 0
 condition = Condition()
-class Connection(Thread):
-    def __init__(self):
-        self.socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        self.socket.bind(("127.0.0.1",8870))
-        self.socket.listen(3)
+
+class HandleEachUser(Thread):
+    def __init__(self,client,clientAddr):
         Thread.__init__(self)
-
+        self.client = client
+        self.clientAddr=clientAddr
     def run(self):
-        global clientList
-        self.ClientListenerLoop()
-
-    def ClientListenerLoop(self):
         while True:
-            client, clientAddr = self.socket.accept()
-            data = client.recv(1024)
-            details = data.split(" ")
-            self.HandleClientsComData(details,client,data,clientAddr)
-
-
-
+            try:
+                data = self.client.recv(1024)
+                details = data.split(" ")
+                self.HandleClientsComData(details,self.client,data,self.clientAddr)
+            except Exception,e:
+                print e
     def HandleClientsComData(self,clientData,client,data,clientAddr):
         returnComand = ""
+        userGroups = ""
+        print clientData
         user = User.User("","","","")
 
         #take care of login command
@@ -66,9 +65,19 @@ class Connection(Thread):
 
 
 
-        #sending the client aknowledge
-        client.send(returnComand)
+        if clientData[0] == comPacageGetActiveUsers:
+            returnComand = ackComandUsersList+" "+self.GetUsers()
 
+        #take care of new group command
+        if clientData[0] == comPacageNewGroup:
+            usersForTheGroup = data[2:]
+            listOfUsers = usersForTheGroup.split(" ")
+            groupName = listOfUsers[0]
+            listOfUsers.remove(groupName)
+            self.NewGroup(listOfUsers,groupName)
+            returnComand = "4"
+
+        client.send(returnComand)
 
         # after login send the client the user group this user is part of
         if clientData[0] == comPacageLogin or clientData[0] == comPacageNewUser:
@@ -79,8 +88,34 @@ class Connection(Thread):
             condition.notify()
             condition.release()
 
-        handleEachUser = HandleEachUser(client,user,clientAddr)
-        handleEachUser.start()
+    def NewGroup(self, l,groupName):
+        global count
+        gr = Group(count,groupName)
+        count = count+1
+        usersList = pickle.load(open(usersFileName, "rb"))
+        for username in l:
+            for user1 in usersList:
+                if user1[0].getUserName() == username:
+                    Group.AddUser(user1)
+        groupslist = pickle.load(open(groupsFileName,"rb"))
+        self.SaveNewGroup(groupslist,gr)
+
+    def SaveNewGroup(self,oldList,newGroup):
+        oldList.append(newGroup)
+        pickle.dump(oldList,open(usersFileName,"wb"))
+
+
+    def GetUsers(self):
+        usersList = pickle.load(open(usersFileName, "rb"))
+        usersNames = ""
+        i = 1
+        for user in usersList:
+            usersNames = usersNames + user.GetUserName()
+            if i < len(usersList):
+                usersNames = usersNames + " "
+            i=i+1
+
+        return usersNames
 
     def FindingUserGroups(self,clientAddr):
         groupsfile = open(groupsFileName,"rb")
@@ -132,7 +167,6 @@ class Connection(Thread):
 
 
 
-
     def SaveNewUser(self, user, oldList):
         """
         the username does not exist, we add the new user to the list in the pickle
@@ -142,62 +176,22 @@ class Connection(Thread):
         pickle.dump(oldList,open(usersFileName,"wb"))
 
 
-
-class HandleEachUser(Thread):
-    def __init__(self,client, user,clientAddr):
-        self.user = user
-        self.client = client
-        self.clientAddr=clientAddr
-        Thread.__init__(self)
-    def run(self):
-        while True:
-            data = self.client.recv(1024)
-            details = data.split(" ")
-            self.HandleClientsComData(details,self.client,data,self.clientAddr)
-
-    def HandleClientsComData(self,clientData,client,data,clientAddr):
-        returnComand = ""
-        userGroups = ""
+def Main():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((HOST, PORT))
+    sock.listen(5)
+    print 'server is up'
+    print 'Listening on:', PORT
+    while 1:
+        try:
+            conn, addr = sock.accept()
+            print 'new client was connected - ',addr
+            handleEachUser = HandleEachUser(conn, addr)
+            handleEachUser.start()
+        except Exception, e:
+            print e
 
 
-        if clientData[0] == comPacageGetActiveUsers:
-            returnComand = ackComandUsersList+" "+self.GetUsers()
 
-        #take care of new group command
-        if clientData[0] == comPacageNewGroup:
-            usersForTheGroup = data[2:]
-            listOfUsers = usersForTheGroup.split(" ")
-            self.NewGroup(listOfUsers)
-            returnComand = "4"
-
-        client.send(returnComand)
-
-    def NewGroup(self, l):
-        global count
-        gr = Group(count,"group number "+str(count))
-        count = count+1
-        for username in l:
-            for user1 in onlineUsers:
-                if user1[0].getUserName() == username:
-                    Group.AddUser(user1)
-        groupsfile = open(groupsFileName,"rb")
-        pickle.dump(gr)
-        groupsfile.close()
-
-    def GetUsers(self):
-        usersList = pickle.load(open(usersFileName, "rb"))
-        usersNames = ""
-        i = 1
-        for user in usersList:
-            usersNames = usersNames + user.GetUserName()
-            if i < len(usersList):
-                usersNames = usersNames + " "
-            i=i+1
-
-        return usersNames
-
-    
-c=Connection()
-c.start()
-
+Main()
 
