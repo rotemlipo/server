@@ -45,12 +45,7 @@ class Connection(Thread):
 
     def HandleClientsComData(self,clientData,client,data,clientAddr):
         returnComand = ""
-        userGroups = ""
-
-
-        if clientData[0] == comPacageGetActiveUsers:
-            returnComand = ackComandUsersList+" "+self.GetUsers()
-
+        user = User.User("","","","")
 
         #take care of login command
         if clientData[0] == comPacageLogin:
@@ -70,13 +65,6 @@ class Connection(Thread):
                 returnComand = nac
 
 
-        #take care of new group command
-        if clientData[0] == comPacageNewGroup:
-            usersForTheGroup = data[2:]
-            listOfUsers = usersForTheGroup.split(" ")
-            self.NewGroup(listOfUsers)
-            returnComand = "4"
-
 
         #sending the client aknowledge
         client.send(returnComand)
@@ -91,8 +79,8 @@ class Connection(Thread):
             condition.notify()
             condition.release()
 
-
-
+        handleEachUser = HandleEachUser(client,user,clientAddr)
+        handleEachUser.start()
 
     def FindingUserGroups(self,clientAddr):
         groupsfile = open(groupsFileName,"rb")
@@ -109,17 +97,6 @@ class Connection(Thread):
             groupsNames.append(";")
         return ";"+groupsNames
 
-    def NewGroup(self, l):
-        global count
-        gr = Group(count,"group number "+str(count))
-        count = count+1
-        for username in l:
-            for user1 in onlineUsers:
-                if user1[0].getUserName() == username:
-                    Group.AddUser(user1)
-        groupsfile = open(groupsFileName,"rb")
-        pickle.dump(gr)
-        groupsfile.close()
 
 
 
@@ -165,6 +142,48 @@ class Connection(Thread):
         pickle.dump(oldList,open(usersFileName,"wb"))
 
 
+
+class HandleEachUser(Thread):
+    def __init__(self,client, user,clientAddr):
+        self.user = user
+        self.client = client
+        self.clientAddr=clientAddr
+        Thread.__init__(self)
+    def run(self):
+        while True:
+            data = self.client.recv(1024)
+            details = data.split(" ")
+            self.HandleClientsComData(details,self.client,data,self.clientAddr)
+
+    def HandleClientsComData(self,clientData,client,data,clientAddr):
+        returnComand = ""
+        userGroups = ""
+
+
+        if clientData[0] == comPacageGetActiveUsers:
+            returnComand = ackComandUsersList+" "+self.GetUsers()
+
+        #take care of new group command
+        if clientData[0] == comPacageNewGroup:
+            usersForTheGroup = data[2:]
+            listOfUsers = usersForTheGroup.split(" ")
+            self.NewGroup(listOfUsers)
+            returnComand = "4"
+
+        client.send(returnComand)
+
+    def NewGroup(self, l):
+        global count
+        gr = Group(count,"group number "+str(count))
+        count = count+1
+        for username in l:
+            for user1 in onlineUsers:
+                if user1[0].getUserName() == username:
+                    Group.AddUser(user1)
+        groupsfile = open(groupsFileName,"rb")
+        pickle.dump(gr)
+        groupsfile.close()
+
     def GetUsers(self):
         usersList = pickle.load(open(usersFileName, "rb"))
         usersNames = ""
@@ -176,6 +195,8 @@ class Connection(Thread):
             i=i+1
 
         return usersNames
+
+    
 c=Connection()
 c.start()
 
