@@ -1,7 +1,7 @@
 from threading import Thread,Condition
 import socket
 import pickle
-import Group
+import ChatGroup
 import UserReciever
 import User
 
@@ -70,12 +70,15 @@ class HandleEachUser(Thread):
 
         #take care of new group command
         if clientData[0] == comPacageNewGroup:
-            usersForTheGroup = data[2:]
-            listOfUsers = usersForTheGroup.split(" ")
-            groupName = listOfUsers[0]
-            listOfUsers.remove(groupName)
-            self.NewGroup(listOfUsers,groupName)
-            returnComand = "4"
+            try:
+                usersForTheGroup = data[2:]
+                listOfUsers = usersForTheGroup.split(" ")
+                groupName = listOfUsers[0]
+                listOfUsers.remove(groupName)
+                self.NewGroup(listOfUsers,groupName)
+                returnComand = "4"
+            except Exception,e:
+                print e
 
         client.send(returnComand)
 
@@ -90,20 +93,19 @@ class HandleEachUser(Thread):
 
     def NewGroup(self, l,groupName):
         global count
-        gr = Group(count,groupName)
+        gr = ChatGroup.ChatGroup(count,groupName)
         count = count+1
         usersList = pickle.load(open(usersFileName, "rb"))
         for username in l:
-            for user1 in usersList:
-                if user1[0].getUserName() == username:
-                    Group.AddUser(user1)
+            for user in usersList:
+                if user.GetUserName() == username:
+                    gr.AddUser(user)
         groupslist = pickle.load(open(groupsFileName,"rb"))
         self.SaveNewGroup(groupslist,gr)
 
     def SaveNewGroup(self,oldList,newGroup):
         oldList.append(newGroup)
-        pickle.dump(oldList,open(usersFileName,"wb"))
-
+        pickle.dump(oldList,open(groupsFileName,"wb"))
 
     def GetUsers(self):
         usersList = pickle.load(open(usersFileName, "rb"))

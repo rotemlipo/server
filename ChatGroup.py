@@ -1,11 +1,10 @@
-__author__ = 'user'
 
-class chatGroup():
+class ChatGroup():
     def __init__(self, ID, name):
-        # self.ID = ID
+        self.ID = ID
         self.name = name
         self.users = []
-        # self.messages = []
+        self.messages = []
 
     def ChangeName(self,newName):
         self.name == newName
