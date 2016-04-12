@@ -18,13 +18,12 @@ ackCommandLogin = "1"
 ackComandRegister = "2"
 nac = "0"
 ackComandUsersList = "4"
+ackComandUsersGroups = "5"
 #file paths
 usersFileName = "D:/newNewnewserverfinalversionnewNewnew2/users.pkl"
 groupsFileName = "D:/newNewnewserverfinalversionnewNewnew2/groups.pkl"
 
-onlineUsers = [] ##list of the users that are currently connected
 messages = []
-count = 0
 condition = Condition()
 
 class HandleEachUser(Thread):
@@ -76,6 +75,7 @@ class HandleEachUser(Thread):
                 groupName = listOfUsers[0]
                 listOfUsers.remove(groupName)
                 self.NewGroup(listOfUsers,groupName)
+
                 returnComand = "4"
             except Exception,e:
                 print e
@@ -84,17 +84,13 @@ class HandleEachUser(Thread):
 
         # after login send the client the user group this user is part of
         if clientData[0] == comPacageLogin or clientData[0] == comPacageNewUser:
-            userGroups = self.FindingUserGroups(clientAddr)
+            userGroups = self.FindingUserGroups(user)
             client.send(userGroups) # send the client the user's groups
-            condition.acquire()
-            onlineUsers.append((user,client))  # add the user to the list of online users
-            condition.notify()
-            condition.release()
+
 
     def NewGroup(self, l,groupName):
         global count
-        gr = ChatGroup.ChatGroup(count,groupName)
-        count = count+1
+        gr = ChatGroup.ChatGroup(groupName)
         usersList = pickle.load(open(usersFileName, "rb"))
         for username in l:
             for user in usersList:
@@ -119,20 +115,16 @@ class HandleEachUser(Thread):
 
         return usersNames
 
-    def FindingUserGroups(self,clientAddr):
+    def FindingUserGroups(self,user):
         groupsfile = open(groupsFileName,"rb")
-        usergroups = []
         l1 = pickle.load(groupsfile)
         groupsfile.close()
-        for group in l1:
-            for u in group.users:
-                if u[1] == clientAddr:
-                    usergroups.append((group.ID,group.name))
-        groupsNames = ""
-        for group in usergroups:
-            groupsNames.append(group[1])
-            groupsNames.append(";")
-        return ";"+groupsNames
+        usergroups = ";"
+        for group1 in l1:
+            for u in group1.users:
+                if u.GetUserName() == user.GetUserName():
+                  usergroups = usergroups+ group1.GetName()+ ";"
+        return usergroups
 
 
 
