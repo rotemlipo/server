@@ -13,12 +13,17 @@ comPacageLogin = "1"
 comPacageNewUser = "2"
 comPacageNewGroup = "3"
 comPacageGetActiveUsers = "4"
+comGroupName = "7"
+
 #return comands
 ackCommandLogin = "1"
 ackComandRegister = "2"
 nac = "0"
 ackComandUsersList = "4"
 ackComandUsersGroups = "5"
+nacGroup = "6"
+ackGroupIsOk = "7"
+ackMessages = "8"
 #file paths
 usersFileName = "D:/newNewnewserverfinalversionnewNewnew2/users.pkl"
 groupsFileName = "D:/newNewnewserverfinalversionnewNewnew2/groups.pkl"
@@ -62,6 +67,16 @@ class HandleEachUser(Thread):
             else:
                 returnComand = nac
 
+        if clientData[0] == comGroupName:
+            grouplist = pickle.load(open(groupsFileName,"rb"))
+            for group in grouplist:
+                if group.GetName() == clientData[:1]:
+                    chosenGroup = group
+            messages = chosenGroup.GetMessages()
+            returnComand = ackMessages+";"
+            for message in messages:
+                returnComand = returnComand+message+";"
+
 
 
         if clientData[0] == comPacageGetActiveUsers:
@@ -74,9 +89,11 @@ class HandleEachUser(Thread):
                 listOfUsers = usersForTheGroup.split(" ")
                 groupName = listOfUsers[0]
                 listOfUsers.remove(groupName)
-                self.NewGroup(listOfUsers,groupName)
-
-                returnComand = "4"
+                gr=self.NewGroup(listOfUsers,groupName)
+                if gr != 0:
+                    returnComand = ackGroupIsOk
+                else:
+                    returnComand = nacGroup
             except Exception,e:
                 print e
 
@@ -90,6 +107,7 @@ class HandleEachUser(Thread):
 
     def NewGroup(self, l,groupName):
         global count
+        flag = False
         gr = ChatGroup.ChatGroup(groupName)
         usersList = pickle.load(open(usersFileName, "rb"))
         for username in l:
@@ -97,7 +115,14 @@ class HandleEachUser(Thread):
                 if user.GetUserName() == username:
                     gr.AddUser(user)
         groupslist = pickle.load(open(groupsFileName,"rb"))
-        self.SaveNewGroup(groupslist,gr)
+        for group in groupslist:
+            if group.GetName() == groupName:
+                flag = True
+        if flag:
+            return 0
+        if not flag:
+            self.SaveNewGroup(groupslist,gr)
+        return gr
 
     def SaveNewGroup(self,oldList,newGroup):
         oldList.append(newGroup)

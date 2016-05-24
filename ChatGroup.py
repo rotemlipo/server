@@ -8,6 +8,9 @@ class ChatGroup():
     def GetName(self):
         return self.name
 
+    def GetMessages(self):
+        return self.messages
+
     def ChangeName(self,newName):
         self.name == newName
 
