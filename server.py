@@ -3,6 +3,7 @@ import socket
 import pickle
 import ChatGroup
 import UserReciever
+import os
 import User
 
 
@@ -25,8 +26,8 @@ nacGroup = "6"
 ackGroupIsOk = "7"
 ackMessages = "8"
 #file paths
-usersFileName = "D:/newNewnewserverfinalversionnewNewnew2/users.pkl"
-groupsFileName = "D:/newNewnewserverfinalversionnewNewnew2/groups.pkl"
+usersFileName = os.path.dirname(os.path.realpath(__file__)) + "/users.pkl"
+groupsFileName = os.path.dirname(os.path.realpath(__file__)) + "/groups.pkl"
 
 messages = []
 condition = Condition()
