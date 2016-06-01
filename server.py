@@ -2,7 +2,6 @@ from threading import Thread,Condition
 import socket
 import pickle
 import ChatGroup
-import UserReciever
 import os
 import User
 
@@ -15,6 +14,7 @@ comPacageNewUser = "2"
 comPacageNewGroup = "3"
 comPacageGetActiveUsers = "4"
 comGroupName = "7"
+comChatMessage = "8"
 
 #return comands
 ackCommandLogin = "1"
@@ -25,18 +25,23 @@ ackComandUsersGroups = "5"
 nacGroup = "6"
 ackGroupIsOk = "7"
 ackMessages = "8"
+ackChatMessage = "9"
+
 #file paths
 usersFileName = os.path.dirname(os.path.realpath(__file__)) + "/users.pkl"
 groupsFileName = os.path.dirname(os.path.realpath(__file__)) + "/groups.pkl"
 
-messages = []
 condition = Condition()
+
+onlineUsers = {}
 
 class HandleEachUser(Thread):
     def __init__(self,client,clientAddr):
         Thread.__init__(self)
         self.client = client
         self.clientAddr=clientAddr
+        self.currentUsername = ""
+        self.chosenGroupName = ""
     def run(self):
         while True:
             try:
@@ -45,9 +50,12 @@ class HandleEachUser(Thread):
                 self.HandleClientsComData(details,self.client,data,self.clientAddr)
             except Exception,e:
                 print e
+                if onlineUsers.has_key(self.currentUsername):
+                    del onlineUsers[self.currentUsername]
+                break
     def HandleClientsComData(self,clientData,client,data,clientAddr):
         returnComand = ""
-        userGroups = ""
+        messages = []
         print clientData
         user = User.User("","","","")
 
@@ -62,6 +70,7 @@ class HandleEachUser(Thread):
 
         #take care of register command
         if clientData[0] == comPacageNewUser:
+            print clientData
             user = self.Register(clientData[1],clientData[2],clientData[4],clientData[3])
             if user:
                 returnComand = ackComandRegister
@@ -71,9 +80,9 @@ class HandleEachUser(Thread):
         if clientData[0] == comGroupName:
             grouplist = pickle.load(open(groupsFileName,"rb"))
             for group in grouplist:
-                if group.GetName() == clientData[:1]:
-                    chosenGroup = group
-            messages = chosenGroup.GetMessages()
+                if group.GetName() == clientData[1]:
+                    self.chosenGroupName = clientData[1]
+                    messages = group.GetMessages()
             returnComand = ackMessages+";"
             for message in messages:
                 returnComand = returnComand+message+";"
@@ -98,10 +107,27 @@ class HandleEachUser(Thread):
             except Exception,e:
                 print e
 
+        if clientData[0] == comChatMessage:
+            message = ackChatMessage
+            for i in range (1, len(clientData)):
+                message = message +" "+clientData[i]
+            grouplist = pickle.load(open(groupsFileName, "rb"))
+            for group in grouplist:
+                if group.GetName() == self.chosenGroupName:
+                    group.AddMessage(message[2:])
+                    group1 = group
+            pickle.dump(grouplist,open(groupsFileName,"wb"))
+            for user in group1.GetUsers():
+                if onlineUsers.has_key(user.GetUserName()):
+                    onlineUsers[user.GetUserName()].send(message)
+
+
         client.send(returnComand)
 
         # after login send the client the user group this user is part of
         if clientData[0] == comPacageLogin or clientData[0] == comPacageNewUser:
+            onlineUsers.update({user.GetUserName():client})
+            self.currentUsername = user.GetUserName()
             userGroups = self.FindingUserGroups(user)
             client.send(userGroups) # send the client the user's groups
 
@@ -176,6 +202,7 @@ class HandleEachUser(Thread):
         the function checks if the user's username already exists and if it doesnt it creates the new user
         :return: user (if the username didnt exist), 0 (if the username exist)
         """
+        print firstName+lastName+password+userName
         user = User.User(firstName, lastName, password,userName)
         listOfUsers = pickle.load(open(usersFileName, "rb"))
         print listOfUsers
