@@ -33,8 +33,10 @@ groupsFileName = os.path.dirname(os.path.realpath(__file__)) + "/groups.pkl"
 
 condition = Condition()
 
+#a dictionary that contains all the online users' usernames and socket at the moment
 onlineUsers = {}
 
+#the threaded class that handles each user seperatly and its data
 class HandleEachUser(Thread):
     def __init__(self,client,clientAddr):
         Thread.__init__(self)
@@ -53,10 +55,14 @@ class HandleEachUser(Thread):
                 if onlineUsers.has_key(self.currentUsername):
                     del onlineUsers[self.currentUsername]
                 break
+
     def HandleClientsComData(self,clientData,client,data,clientAddr):
+        """
+        getting list of seperated data (spliting acording to " "), client socket, string of data, and client address
+        annalizing the data acording to comands on the first char and sending a suitable command
+        """
         returnComand = ""
         messages = []
-        print clientData
         user = User.User("","","","")
 
         #take care of login command
@@ -66,6 +72,7 @@ class HandleEachUser(Thread):
                 returnComand =ackCommandLogin
             else:
                 returnComand = nac
+                user = User.User("","","","")
 
 
         #take care of register command
@@ -77,6 +84,7 @@ class HandleEachUser(Thread):
             else:
                 returnComand = nac
 
+        #take care of choosing group comand
         if clientData[0] == comGroupName:
             grouplist = pickle.load(open(groupsFileName,"rb"))
             for group in grouplist:
@@ -88,7 +96,7 @@ class HandleEachUser(Thread):
                 returnComand = returnComand+message+";"
 
 
-
+        #take care of getting users list request
         if clientData[0] == comPacageGetActiveUsers:
             returnComand = ackComandUsersList+" "+self.GetUsers()
 
@@ -107,7 +115,9 @@ class HandleEachUser(Thread):
             except Exception,e:
                 print e
 
+        #take care of sending chat message to all active users
         if clientData[0] == comChatMessage:
+            group1 = ChatGroup.ChatGroup("")
             message = ackChatMessage
             for i in range (1, len(clientData)):
                 message = message +" "+clientData[i]
@@ -131,8 +141,12 @@ class HandleEachUser(Thread):
             userGroups = self.FindingUserGroups(user)
             client.send(userGroups) # send the client the user's groups
 
-
     def NewGroup(self, l,groupName):
+        """
+        getting list of groups and groupname string
+        checking if group name is valid (doesnt exist) and creating new group.
+        :return: new group (if the groupname doesnt exist) or 0 (if the groupname exists
+        """
         global count
         flag = False
         gr = ChatGroup.ChatGroup(groupName)
@@ -146,16 +160,24 @@ class HandleEachUser(Thread):
             if group.GetName() == groupName:
                 flag = True
         if flag:
-            return 0
+            return 0 #groupname already exists
         if not flag:
             self.SaveNewGroup(groupslist,gr)
         return gr
 
     def SaveNewGroup(self,oldList,newGroup):
+        """
+        getting a group and the old unupdated list of groups
+        the group does not exist, we add the new group to the list in the pickle
+        """
         oldList.append(newGroup)
         pickle.dump(oldList,open(groupsFileName,"wb"))
 
     def GetUsers(self):
+        """
+        creating a string of all the usernames
+        :return: string of usernames
+        """
         usersList = pickle.load(open(usersFileName, "rb"))
         usersNames = ""
         i = 1
@@ -164,10 +186,14 @@ class HandleEachUser(Thread):
             if i < len(usersList):
                 usersNames = usersNames + " "
             i=i+1
-
         return usersNames
 
     def FindingUserGroups(self,user):
+        """
+        getting a user
+        creating its groups string
+        :return: groups string
+        """
         groupsfile = open(groupsFileName,"rb")
         l1 = pickle.load(groupsfile)
         groupsfile.close()
@@ -183,6 +209,7 @@ class HandleEachUser(Thread):
 
     def CheckLogin(self, userName,password):
         """
+        getting username and password strings
         checking if the user exists in the pickle
         :return: user (if the user exists), 0(if it doesnt)
         """
@@ -199,7 +226,8 @@ class HandleEachUser(Thread):
 
     def Register(self,firstName, lastName, password,userName):
         """
-        the function checks if the user's username already exists and if it doesnt it creates the new user
+        getting user details - first name, last name, username, password strings
+        checking if the user's username already exists and if it doesnt creating the new user
         :return: user (if the username didnt exist), 0 (if the username exist)
         """
         print firstName+lastName+password+userName
@@ -216,14 +244,17 @@ class HandleEachUser(Thread):
 
     def SaveNewUser(self, user, oldList):
         """
+        getting a user and the old unupdated list of users
         the username does not exist, we add the new user to the list in the pickle
-        :param oldList: old list of users from the pickle
         """
         oldList.append(user)
         pickle.dump(oldList,open(usersFileName,"wb"))
 
 
 def Main():
+    """
+    the main function! creating a socket and connecting to clients. sendin them to "handleEachUser"
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((HOST, PORT))
     sock.listen(5)
